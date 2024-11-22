@@ -1,67 +1,49 @@
 trigger:
-- main
+  - main
 
 pool:
   vmImage: 'windows-latest'
 
+# Inclui o grupo de variáveis e define variáveis adicionais de build
 variables:
-  solution: '**/SolarSense.sln'
-  buildPlatform: 'Any CPU'
-  buildConfiguration: 'Release'
-  webAppName: 'SolarSense'
-  resourceGroup: 'GS_SOLARSENSE'
-  slotName: 'production'
+  - name: buildPlatform
+    value: 'Any CPU'
+  - name: buildConfiguration
+    value: 'Release'
+  - group: AzureCredentialsGroup  # Adiciona o grupo de variáveis seguras
 
 steps:
-# 1. Instalar ferramenta NuGet
-- task: NuGetToolInstaller@1
+  # Etapa 1: Instala o SDK do .NET 8.x (compatível com o .NET 8.0)
+  - task: UseDotNet@2
+    inputs:
+      packageType: 'sdk'
+      version: '8.x'  # Atualizado para o .NET 8.x
+      installationPath: $(Agent.ToolsDirectory)/dotnet
 
-# 2. Restaurar pacotes NuGet
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '$(solution)'
+  # Etapa 2: Restaura os pacotes NuGet para o projeto
+  - task: NuGetCommand@2
+    inputs:
+      restoreSolution: '**/*.sln'  # Encontra e restaura pacotes para todos os arquivos .sln no projeto
 
-# 3. Construir o projeto com o Visual Studio
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:Configuration=$(buildConfiguration)'
+  # Etapa 3: Compila o projeto usando o Visual Studio Build
+  - task: VSBuild@1
+    inputs:
+      solution: '**/*.sln'  # Compila todos os arquivos de solução (.sln) no repositório
+      platform: '$(buildPlatform)'  # Usa a plataforma definida na variável `buildPlatform`
+      configuration: '$(buildConfiguration)'  # Usa a configuração de build definida na variável `buildConfiguration`
 
-# 4. Publicar o projeto .NET (gerar o pacote .zip)
-- task: DotNetCoreCLI@2
-  inputs:
-    command: 'publish'
-    publishWebProjects: true
-    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)\drop'
+  # Etapa 4: Publica o projeto para gerar os artefatos de deploy
+  - task: DotNetCoreCLI@2
+    inputs:
+      command: 'publish'  # Comando de publicação do .NET CLI
+      publishWebProjects: true  # Publica todos os projetos web no repositório
+      arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'  # Define a saída para o diretório de artefatos
 
-# 5. Publicar artefato para o pipeline
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)\drop'
-    ArtifactName: 'drop'
-    publishLocation: 'Container'
 
-# 6. Verificação e listagem dos artefatos
-- script: |
-    if exist "$(Build.ArtifactStagingDirectory)\drop\*" (
-        echo "Artefatos encontrados no diretório:"
-        dir "$(Build.ArtifactStagingDirectory)\drop\*"
-    ) else (
-        echo "Nenhum artefato encontrado no diretório especificado."
-        exit 1
-    )
-  displayName: 'Verificar e listar arquivos'
-
-# 7. Deploy do pacote no Azure App Service
-- task: AzureWebApp@1
-  inputs:
-    azureSubscription: 'Enzo Lafer RM551111(8b3c71f1-34e5-4ca5-adde-1783ea3a7d68)'
-    appType: 'webApp'
-    appName: 'SolarSense'
-    deployToSlotOrASE: true
-    package: '$(Build.ArtifactStagingDirectory)\drop\*.zip'
-    deploymentMethod: 'auto'
-    resourceGroupName: 'GS_SOLARSENSE'
-    slotName: 'production'
+  # Etapa 6: Realiza o deploy do projeto no Azure Web App
+  - task: AzureWebApp@1
+    inputs:
+     azureSubscription: 'Enzo Lafer RM551111(8b3c71f1-34e5-4ca5-adde-1783ea3a7d68)'
+     appType: 'webApp'
+     appName: 'SolarSense'  # Nome do Azure Web App onde o projeto será implantado
+     package: '$(Build.ArtifactStagingDirectory)'  # Caminho dos artefatos de publicação gerados na etapa de publicação
