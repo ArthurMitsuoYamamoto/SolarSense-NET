@@ -1,5 +1,13 @@
 trigger:
-  - main
+  branches:
+    include:
+      - main  # Dispara na branch principal
+      - feature/*  # Dispara para branches de feature
+
+pr:
+  branches:
+    include:
+      - main  # Verifica PRs na branch principal
 
 pool:
   vmImage: 'windows-latest'
@@ -39,11 +47,10 @@ steps:
       publishWebProjects: true  # Publica todos os projetos web no repositório
       arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'  # Define a saída para o diretório de artefatos
 
-
-  # Etapa 6: Realiza o deploy do projeto no Azure Web App
+  # Etapa 5: Realiza o deploy do projeto no Azure Web App
   - task: AzureWebApp@1
     inputs:
-     azureSubscription: 'Enzo Lafer RM551111(8b3c71f1-34e5-4ca5-adde-1783ea3a7d68)'
-     appType: 'webApp'
-     appName: 'SolarSense'  # Nome do Azure Web App onde o projeto será implantado
-     package: '$(Build.ArtifactStagingDirectory)'  # Caminho dos artefatos de publicação gerados na etapa de publicação
+      azureSubscription: 'Enzo Lafer RM551111(8b3c71f1-34e5-4ca5-adde-1783ea3a7d68)'
+      appType: 'webApp'
+      appName: 'SolarSense'  # Nome do Azure Web App onde o projeto será implantado
+      package: '$(Build.ArtifactStagingDirectory)'  # Caminho dos artefatos de publicação gerados na etapa de publicação
